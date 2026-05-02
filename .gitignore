@@ -45,3 +45,8 @@ app.*.map.json
 /android/app/release
 .env
 .env.*
+.dart_tool/
+build/
+*.log
+.idea/
+.vscode/

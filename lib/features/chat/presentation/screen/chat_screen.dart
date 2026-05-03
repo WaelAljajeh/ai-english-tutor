@@ -1,9 +1,9 @@
-import 'package:ecwaiproject/features/chat/data/repositories/chat_repository.dart';
-import 'package:ecwaiproject/features/chat/data/services/api_service.dart';
 import 'package:ecwaiproject/features/chat/presentation/controller/chat_controller.dart';
+import 'package:ecwaiproject/features/chat/presentation/state/chate_status.dart';
 import 'package:ecwaiproject/features/chat/presentation/widgets/message_input.dart';
 import 'package:ecwaiproject/features/chat/presentation/widgets/message_list.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class ChatMessage extends StatefulWidget {
   const ChatMessage({super.key});
@@ -14,40 +14,73 @@ class ChatMessage extends StatefulWidget {
 
 class _ChatMessageState extends State<ChatMessage> {
   late TextEditingController controller;
-  late ChatController _chatController;
-  @override
+
   @override
   void initState() {
-    _chatController = ChatController(ChatRepository(ApiService()));
     controller = TextEditingController();
     super.initState();
   }
 
-  void sendMessage() async {
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  void sendMessage() {
     final text = controller.text.trim();
     if (text.isEmpty) return;
 
     controller.clear();
-
-    await _chatController.sendMessage(text);
-
-    setState(() {});
+    context.read<ChatController>().sendMessage(text);
   }
 
   @override
   Widget build(BuildContext context) {
-    final messages = _chatController.messages;
+    // Only rebuild when these change
+    final status = context.select((ChatController c) => c.status);
+    final error = context.select((ChatController c) => c.errormessage);
+    final messages = context.select((ChatController c) => c.messages);
+
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        title: Text("English Conversation With Ai"),
+        title: const Text("English Conversation With AI"),
       ),
       body: Column(
         children: [
+          /// Messages
           Expanded(child: MessageList(messages: messages)),
-          MessageInput(controller: controller, onSend: sendMessage),
+
+          /// Status (loading / error)
+          _buildStatus(status, error!),
+
+          /// Input
+          MessageInput(
+            controller: controller,
+            onSend: status == ChatStatus.loading ? () {} : sendMessage,
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildStatus(ChatStatus status, String error) {
+    switch (status) {
+      case ChatStatus.loading:
+        return const Padding(
+          padding: EdgeInsets.all(8.0),
+          child: CircularProgressIndicator(),
+        );
+
+      case ChatStatus.error:
+        return Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(error, style: const TextStyle(color: Colors.red)),
+        );
+
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }
